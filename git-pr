@@ -1,0 +1,29 @@
+#!/bin/bash -e
+#Author: Prashant Baid
+ 
+base=$1
+if [ -z $base ]; then
+  base="master"
+fi
+
+origin=$(git config --get remote.origin.url)
+github_api='https://github.com/api/v3'
+owner=$(echo $origin | sed -e 's/.*[\/:]\([^/]*\)\/[^/]*$/\1/')
+repo=$(basename -s .git `git config --get remote.origin.url`)
+current_branch=$(git rev-parse --abbrev-ref HEAD)
+access_token='<YOUR_ACCESS_TOKEN>'
+commit_message=$(git log -1 --pretty=%B)
+
+output=$(curl -s -X POST "$github_api/repos/$owner/$repo/pulls" -H "Authorization: token $access_token" -H 'Accept: application/vnd.github.v3+json' --data "{\"title\":\"$commit_message\",\"head\":\"$current_branch\",\"base\":\"$base\"}")
+
+pr_url=$(echo $output | node -pe "JSON.parse(require('fs').readFileSync('/dev/stdin').toString()).html_url")
+
+if [ "$pr_url" == "undefined" ]
+then
+  echo -e "Failed to create pull request."
+  echo $output
+  exit 1
+fi
+
+echo "Pull Request Created. URL: $pr_url"
+open $pr_url
